@@ -4,33 +4,35 @@
 
 ## Ажиллуулах
 
-Төслийн үндсэн хавтаснаас эхний терминалд API-г асаана.
+Эхний терминалд энэ сургалтын workspace-ийн үндсэн хавтаснаас Лаб 3-ын API-г асаана. Хэрэв Lab 2-ыг дангаар нь татсан бол [Лаб 3-ын репозиторыг](https://github.com/B232270009/csa313-3) мөн татна. Дараа нь татсан Лаб 3-ын хавтаснаас `npm ci`, `node server.js` командуудыг ажиллуулна.
 
-```powershell
-node .\Lab3\server.js
+```bash
+cd lab03/csa313-3
+npm ci
+node server.js
 ```
 
-Хоёр дахь PowerShell терминалд мөн төслийн үндсэн хавтаснаас эхэлнэ. `--quiet` сонголтоор явцын мөрүүдийг хасаад бүтэн summary болон k6-ийн логийг файлд хадгалсан.
+Хоёр дахь терминалд `lab02` хавтас буюу `script.js` байгаа хавтас руу орно. Дахин хэмжсэн гаралтыг түр хавтаст хадгалж, `results/` доторх тайлангийн эх хэмжилтүүдийг хадгална. Дараах хоёр блокыг нэг терминалд ажиллуулна.
 
-```powershell
-$k6Exe = (Get-ChildItem .\.tools\k6 -Filter k6.exe -Recurse).FullName
-& $k6Exe version
-Set-Location .\Lab2
+```bash
+k6 version
+output_dir=$(mktemp -d)
+printf 'k6 гаралтын хавтас: %s\n' "$output_dir"
 
-& $k6Exe run --quiet --no-color --summary-mode full --log-output stdout script.js |
-    Set-Content -Encoding UTF8 results/baseline.txt
+k6 run --quiet --no-color --summary-mode full --log-output stdout script.js \
+    > "$output_dir/baseline.txt"
 
-foreach ($vu in 5, 30, 100) {
-    $file = 'results/run-{0:00}vu.txt' -f $vu
-    & $k6Exe run --quiet --no-color --summary-mode full --log-output stdout --vus $vu --duration 1m script.js |
-        Set-Content -Encoding UTF8 $file
-}
+for vu in 5 30 100; do
+    printf -v file 'run-%02dvu.txt' "$vu"
+    k6 run --quiet --no-color --summary-mode full --log-output stdout \
+        --vus "$vu" --duration 1m script.js > "$output_dir/$file"
+done
 
-& $k6Exe run --quiet --no-color --summary-mode full --log-output stdout -e MODE=stages script.js |
-    Set-Content -Encoding UTF8 results/run-stages.txt
+k6 run --quiet --no-color --summary-mode full --log-output stdout \
+    -e MODE=stages script.js > "$output_dir/run-stages.txt"
 ```
 
-`k6 version`-ийн гаралт
+Хавсаргасан хэмжилтүүдийг хийх үед гарсан `k6 version`-ийн гаралт
 
 ```text
 k6.exe v2.4.0 (commit/dd9395906d, go1.26.11, windows/amd64)
@@ -42,14 +44,14 @@ k6.exe v2.4.0 (commit/dd9395906d, go1.26.11, windows/amd64)
 
 Baseline p95-ыг 1.5-аар үржүүлж бүхэл мс рүү дээш тоймлон `p(95)<604` гэж тогтоосон. Энэ нь ачаалал өсөхөд baseline-аас ойролцоогоор 50% хүртэл нэмэгдэх зай үлдээж байгаа ба алдааны хувьд `rate<0.01` буюу 1%-иас бага гэсэн нөхцөл тавьсан.
 
-```powershell
-& $k6Exe run --quiet --no-color --summary-mode full --log-output stdout -e P95_LIMIT_MS=604 script.js |
-    Set-Content -Encoding UTF8 results/threshold-pass.txt
-$LASTEXITCODE
+```bash
+k6 run --quiet --no-color --summary-mode full --log-output stdout \
+    -e P95_LIMIT_MS=604 script.js > "$output_dir/threshold-pass.txt"
+printf 'PASS туршилтын exit code: %s\n' "$?"
 
-& $k6Exe run --quiet --no-color --summary-mode full --log-output stdout -e P95_LIMIT_MS=50 script.js |
-    Set-Content -Encoding UTF8 results/threshold-fail.txt
-$LASTEXITCODE
+k6 run --quiet --no-color --summary-mode full --log-output stdout \
+    -e P95_LIMIT_MS=50 script.js > "$output_dir/threshold-fail.txt"
+printf 'FAIL туршилтын exit code: %s\n' "$?"
 ```
 
 ## Тогтмол ачааллын хэмжилт
